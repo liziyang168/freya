@@ -3,6 +3,16 @@ use std::f32::consts::SQRT_2;
 use freya_engine::prelude::*;
 use torin::scaled::Scaled;
 
+/// Radius applied to each corner of an element to round it, plus an optional
+/// `smoothing` factor (`0.0..=1.0`) that turns sharp rounding into a squircle.
+///
+/// Use [`CornerRadius::new_all`] for a uniform radius. It also implements `From<f32>`,
+/// applied to every corner.
+///
+/// ```
+/// # use freya::prelude::*;
+/// let radius = CornerRadius::new_all(8.0);
+/// ```
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[derive(PartialEq, Clone, Debug, Default, Copy)]
 pub struct CornerRadius {
@@ -20,6 +30,7 @@ impl From<f32> for CornerRadius {
 }
 
 impl CornerRadius {
+    /// Create a [`CornerRadius`] with the same radius on all four corners.
     pub const fn new_all(radius: f32) -> Self {
         Self {
             top_left: radius,
@@ -45,10 +56,18 @@ impl CornerRadius {
         self.fill_top(value);
     }
 
+    /// Return a copy of this [`CornerRadius`] with the given `smoothing` (clamped to `0.0..=1.0`).
+    pub fn with_smoothing(mut self, smoothing: f32) -> Self {
+        self.smoothing = smoothing.clamp(0.0, 1.0);
+        self
+    }
+
     // https://github.com/aloisdeniel/figma_squircle/blob/main/lib/src/path_smooth_corners.dart
     pub fn smoothed_path(&self, rect: RRect) -> Path {
         let mut path = PathBuilder::new();
 
+        let left = rect.rect().left();
+        let top = rect.rect().top();
         let width = rect.width();
         let height = rect.height();
 
@@ -159,6 +178,7 @@ impl CornerRadius {
         }
 
         path.detach()
+            .make_transform(&Matrix::translate((left, top)))
     }
 
     pub fn pretty(&self) -> String {

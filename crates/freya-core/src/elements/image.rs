@@ -3,21 +3,26 @@
 use std::{
     any::Any,
     borrow::Cow,
-    cell::RefCell,
     collections::HashMap,
     rc::Rc,
 };
 
 use bytes::Bytes;
 use freya_engine::prelude::{
+    AlphaType,
     ClipOp,
+    ColorType,
     CubicResampler,
+    Data,
     FilterMode,
+    ISize,
+    ImageInfo,
     MipmapMode,
     Paint,
     SamplingOptions,
     SkImage,
     SkRect,
+    raster_from_data,
 };
 use rustc_hash::FxHashMap;
 use torin::prelude::Size2D;
@@ -62,13 +67,13 @@ use crate::{
 /// You most likely want to use a higher level than this, like the component `ImageViewer`.
 ///
 /// See the available methods in [Image].
-pub fn image(image_holder: ImageHolder) -> Image {
+pub fn image(image_handle: ImageHandle) -> Image {
     let mut accessibility = AccessibilityData::default();
     accessibility.builder.set_role(accesskit::Role::Image);
     Image {
         key: DiffKey::None,
         element: ImageElement {
-            image_holder,
+            image_handle,
             accessibility,
             layout: LayoutData::default(),
             event_handlers: HashMap::default(),
@@ -81,44 +86,98 @@ pub fn image(image_holder: ImageHolder) -> Image {
     }
 }
 
+/// How an image is positioned within its bounds once it has been scaled.
 #[derive(Default, Clone, Debug, PartialEq)]
 pub enum ImageCover {
+    /// Anchor the image to the top-left of the bounds. This is the default.
     #[default]
     Fill,
+    /// Center the image within the bounds.
     Center,
 }
 
+/// How an image is scaled to fit its bounds while preserving its aspect ratio.
 #[derive(Default, Clone, Debug, PartialEq)]
 pub enum AspectRatio {
+    /// Scale so the whole image fits inside the bounds. This is the default.
     #[default]
     Min,
+    /// Scale so the image covers the whole bounds, cropping the overflow.
     Max,
+    /// Keep the image at its natural size.
     Fit,
+    /// Stretch the image to the bounds, ignoring its aspect ratio.
     None,
 }
 
-#[derive(Clone, Debug, PartialEq, Default)]
+/// The filtering algorithm used when an image is scaled.
+#[derive(Clone, Debug, PartialEq, Eq, Hash, Default)]
 pub enum SamplingMode {
+    /// Nearest-neighbor, fastest and sharpest, best for pixel art.
     Nearest,
+    /// Bilinear filtering.
     Bilinear,
+    /// Trilinear filtering with mipmaps. This is the default.
     #[default]
     Trilinear,
+    /// Mitchell-Netravali cubic resampling, a smooth high-quality filter.
     Mitchell,
+    /// Catmull-Rom cubic resampling, a sharper high-quality filter.
     CatmullRom,
 }
 
-#[derive(Clone)]
-pub struct ImageHolder {
-    pub image: Rc<RefCell<SkImage>>,
-    pub bytes: Bytes,
-}
-
-impl PartialEq for ImageHolder {
-    fn eq(&self, other: &Self) -> bool {
-        Rc::ptr_eq(&self.image, &other.image)
+impl SamplingMode {
+    /// The Skia [`SamplingOptions`] backing this filtering algorithm.
+    pub fn sampling_options(&self) -> SamplingOptions {
+        match self {
+            Self::Nearest => SamplingOptions::new(FilterMode::Nearest, MipmapMode::None),
+            Self::Bilinear => SamplingOptions::new(FilterMode::Linear, MipmapMode::None),
+            Self::Trilinear => SamplingOptions::new(FilterMode::Linear, MipmapMode::Linear),
+            Self::Mitchell => SamplingOptions::from(CubicResampler::mitchell()),
+            Self::CatmullRom => SamplingOptions::from(CubicResampler::catmull_rom()),
+        }
     }
 }
 
+/// A decoded image shared by reference, ready to be rendered by an [`image()`].
+#[derive(Clone)]
+pub struct ImageHandle {
+    pub image: SkImage,
+    /// Backing data of the [`SkImage`], kept alive for as long as the image is used.
+    pub bytes: Bytes,
+}
+
+impl ImageHandle {
+    pub fn new(image: SkImage, bytes: Bytes) -> Self {
+        Self { image, bytes }
+    }
+
+    /// Build a handle from a raw `RGBA8888` pixel buffer, validating its length.
+    pub fn from_rgba(width: u32, height: u32, bytes: Bytes, alpha_type: AlphaType) -> Option<Self> {
+        let row_bytes = (width as usize).checked_mul(4)?;
+        if bytes.len() < row_bytes.checked_mul(height as usize)? {
+            return None;
+        }
+        let info = ImageInfo::new(
+            ISize::new(width as i32, height as i32),
+            ColorType::RGBA8888,
+            alpha_type,
+            None,
+        );
+        // Safety: `bytes` outlives the SkImage because the returned handle owns it.
+        let data = unsafe { Data::new_bytes(&bytes) };
+        let image = raster_from_data(&info, data, row_bytes)?;
+        Some(Self::new(image, bytes))
+    }
+}
+
+impl PartialEq for ImageHandle {
+    fn eq(&self, other: &Self) -> bool {
+        self.image.unique_id() == other.image.unique_id()
+    }
+}
+
+/// How an [`image()`] is scaled and sampled, grouping [`SamplingMode`], [`AspectRatio`] and [`ImageCover`].
 #[derive(Debug, Default, Clone, PartialEq)]
 pub struct ImageData {
     pub sampling_mode: SamplingMode,
@@ -131,7 +190,7 @@ pub struct ImageElement {
     pub accessibility: AccessibilityData,
     pub layout: LayoutData,
     pub event_handlers: FxHashMap<EventName, EventHandlerType>,
-    pub image_holder: ImageHolder,
+    pub image_handle: ImageHandle,
     pub image_data: ImageData,
     pub relative_layer: Layer,
     pub effect: Option<EffectData>,
@@ -165,12 +224,10 @@ impl ElementExt for ImageElement {
             diff.insert(DiffModifies::LAYOUT);
         }
 
-        if self.image_holder != image.image_holder {
+        if self.image_handle != image.image_handle {
             diff.insert(DiffModifies::STYLE);
 
-            if self.image_holder.image.borrow().dimensions()
-                != image.image_holder.image.borrow().dimensions()
-            {
+            if self.image_handle.image.dimensions() != image.image_handle.image.dimensions() {
                 diff.insert(DiffModifies::LAYOUT);
             }
         }
@@ -218,13 +275,13 @@ impl ElementExt for ImageElement {
     }
 
     fn measure(&self, context: LayoutContext) -> Option<(Size2D, Rc<dyn Any>)> {
-        let image = self.image_holder.image.borrow();
+        let image = &self.image_handle.image;
 
         let image_width = image.width() as f32;
         let image_height = image.height() as f32;
 
-        let width_ratio = context.area_size.width / image.width() as f32;
-        let height_ratio = context.area_size.height / image.height() as f32;
+        let width_ratio = context.area_size.width / image_width;
+        let height_ratio = context.area_size.height / image_height;
 
         let size = match self.image_data.aspect_ratio {
             AspectRatio::Max => {
@@ -259,7 +316,6 @@ impl ElementExt for ImageElement {
             .unwrap();
 
         let area = context.layout_node.visible_area();
-        let image = self.image_holder.image.borrow();
 
         let mut rect = SkRect::new(
             area.min_x(),
@@ -283,20 +339,18 @@ impl ElementExt for ImageElement {
             .canvas
             .clip_rrect(clip_rrect, ClipOp::Intersect, true);
 
-        let sampling = match self.image_data.sampling_mode {
-            SamplingMode::Nearest => SamplingOptions::new(FilterMode::Nearest, MipmapMode::None),
-            SamplingMode::Bilinear => SamplingOptions::new(FilterMode::Linear, MipmapMode::None),
-            SamplingMode::Trilinear => SamplingOptions::new(FilterMode::Linear, MipmapMode::Linear),
-            SamplingMode::Mitchell => SamplingOptions::from(CubicResampler::mitchell()),
-            SamplingMode::CatmullRom => SamplingOptions::from(CubicResampler::catmull_rom()),
-        };
+        let sampling = self.image_data.sampling_mode.sampling_options();
 
         let mut paint = Paint::default();
         paint.set_anti_alias(true);
 
-        context
-            .canvas
-            .draw_image_rect_with_sampling_options(&*image, None, rect, sampling, &paint);
+        context.canvas.draw_image_rect_with_sampling_options(
+            &self.image_handle.image,
+            None,
+            rect,
+            sampling,
+            &paint,
+        );
 
         context.canvas.restore();
     }
@@ -377,6 +431,7 @@ impl Image {
             .cloned()
     }
 
+    /// Round the image's corners, clipping it to the rounded shape. See [`CornerRadius`].
     pub fn corner_radius(mut self, corner_radius: impl Into<CornerRadius>) -> Self {
         self.element.corner_radius = Some(corner_radius.into());
         self

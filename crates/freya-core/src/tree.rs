@@ -24,6 +24,8 @@ use torin::{
     prelude::{
         Area,
         LayoutMeasurer,
+        LayoutNode,
+        PostMeasure,
         Size2D,
     },
     torin::{
@@ -43,6 +45,7 @@ use crate::{
     element::{
         ElementExt,
         LayoutContext,
+        PostMeasureContext,
     },
     elements::rect::RectElement,
     events::{
@@ -277,14 +280,8 @@ impl Tree {
                     movements.into_iter().sorted_by_key(|m| m.index)
                 {
                     let from = parent.iter().position(|id| *id == node_id).unwrap();
-
-                    if from < to as usize {
-                        parent.insert(to as usize, node_id);
-                        parent.remove(from);
-                    } else {
-                        parent.remove(from);
-                        parent.insert(to as usize, node_id);
-                    }
+                    parent.remove(from);
+                    parent.insert(to as usize, node_id);
                 }
                 let mut diff = DiffModifies::empty();
                 diff.insert(DiffModifies::REORDER_LAYOUT);
@@ -731,6 +728,33 @@ impl LayoutMeasurer<NodeId> for LayoutMeasurerAdapter<'_> {
         } else {
             false
         }
+    }
+
+    fn should_post_measure(&mut self, node_id: NodeId) -> bool {
+        self.elements
+            .get(&node_id)
+            .is_some_and(|element| element.needs_post_measure())
+    }
+
+    fn post_measure(
+        &mut self,
+        node_id: NodeId,
+        node_layout: &LayoutNode,
+        children: &[NodeId],
+        layout: &Torin<NodeId>,
+    ) -> PostMeasure<NodeId> {
+        self.elements
+            .get(&node_id)
+            .unwrap()
+            .post_measure(PostMeasureContext {
+                node_layout,
+                children,
+                layout,
+                font_collection: self.font_collection,
+                text_style_state: self.text_style_state.get(&node_id).unwrap(),
+                fallback_fonts: self.fallback_fonts,
+                scale_factor: self.scale_factor,
+            })
     }
 
     fn notify_layout_references(

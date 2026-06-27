@@ -58,6 +58,7 @@
 //! - [WebView](freya_webview)
 //! - [Terminal](freya_terminal)
 //! - [Camera](freya_camera)
+//! - [Video](freya_video)
 //! - [Freya Query](freya_query)
 //! - [Tokio Integration](self::_docs::tokio_integration)
 //! - [Devtools](self::_docs::devtools)
@@ -73,13 +74,14 @@
 //! - `tray`: Enables tray support using the [tray_icon] crate.
 //! - `sdk`: Reexport [freya_sdk] under [sdk].
 //! - `gif`: Enables the [GifViewer](components::GifViewer) component.
+//! - `video`: Reexport [freya_video] under [video].
 //! - `plot`: Reexport of plotters under [plot].
 //! - `material-design`: Reexport [freya_material_design] under [material_design].
 //! - `calendar`: Enables the [Calendar](components::Calendar) component.
 //! - `icons`: Reexport of [freya_icons] under [icons].
 //! - `radio`: Reexport [freya_radio] under [radio].
 //! - `query`: Reexport [freya_query] under [query].
-//! - `markdown`: Enables the [MarkdownViewer](components::MarkdownViewer) component.
+//! - `markdown`: Reexport [freya_markdown] under [markdown].
 //! - `webview`: Reexport [freya_webview] under [webview].
 //! - `titlebar`: Enables the [TitlebarButton](components::TitlebarButton) component.
 //! - `terminal`: Reexport [freya_terminal] under [terminal].
@@ -117,6 +119,9 @@ pub mod prelude {
     };
 
     pub use crate::components::*;
+    #[cfg_attr(feature = "docs", doc(cfg(feature = "markdown")))]
+    #[cfg(feature = "markdown")]
+    pub use crate::markdown::*;
 
     #[cfg_attr(feature = "docs", doc(cfg(feature = "winit")))]
     #[cfg(feature = "winit")]
@@ -155,9 +160,6 @@ pub mod components {
     #[cfg_attr(feature = "docs", doc(cfg(feature = "gif")))]
     #[cfg(feature = "gif")]
     pub use freya_components::gif_viewer::*;
-    #[cfg_attr(feature = "docs", doc(cfg(feature = "markdown")))]
-    #[cfg(feature = "markdown")]
-    pub use freya_components::markdown::*;
     cfg_if::cfg_if! {
         if #[cfg(feature = "router")] {
             #[cfg_attr(feature = "docs", doc(cfg(feature = "router")))]
@@ -352,10 +354,24 @@ pub mod camera {
     };
 }
 
+/// Reexport `freya-video` when the `video` feature is enabled.
+#[cfg(feature = "video")]
+#[cfg_attr(feature = "docs", doc(cfg(feature = "video")))]
+pub mod video {
+    pub use freya_video::*;
+}
+
 #[cfg(feature = "performance")]
 #[cfg_attr(feature = "docs", doc(cfg(feature = "performance")))]
 pub mod performance {
     pub use freya_performance_plugin::*;
+}
+
+/// Reexport `freya-markdown` when the `markdown` feature is enabled.
+#[cfg(feature = "markdown")]
+#[cfg_attr(feature = "docs", doc(cfg(feature = "markdown")))]
+pub mod markdown {
+    pub use freya_markdown::*;
 }
 
 #[cfg(target_os = "android")]

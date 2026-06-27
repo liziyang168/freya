@@ -1,6 +1,6 @@
 [package]
 name = "freya"
-version = "0.4.0-rc.22"
+version = "0.4.0-rc.23"
 description = "Cross-platform and non-web GUI Library powered by Skia."
 edition = "2024"
 license = "MIT"
@@ -29,11 +29,13 @@ all = [
   "engine",
   "plot",
   "gif",
+  "video",
   "tray",
   "material-design",
   "calendar",
   "sdk",
   "markdown",
+  "markdown-code-editor",
   "icons",
   "radio",
   "webview",
@@ -42,6 +44,7 @@ all = [
   "query",
   "code-editor",
   "camera",
+  "zoom-shortcuts",
 ]
 all-publish = [
   "all",
@@ -66,12 +69,17 @@ all-tests = [
   "webview",
   "titlebar",
   "query",
+  "zoom-shortcuts",
 ]
 docs = ["all-debug"]
 # Features
 winit = ["dep:freya-winit"]
-router = ["dep:freya-router", "freya-components/router"]
-remote-asset = ["freya-components/remote-asset"]
+router = [
+  "dep:freya-router",
+  "freya-components/router",
+  "freya-markdown?/router",
+]
+remote-asset = ["freya-components/remote-asset", "freya-markdown?/remote-asset"]
 i18n = ["dep:freya-i18n"]
 engine = []
 devtools = ["dep:freya-devtools", "freya-core/devtools"]
@@ -79,8 +87,10 @@ performance = []
 plot = ["dep:plotters", "dep:freya-plotters-backend"]
 hotreload = ["winit", "freya-core/hotreload", "freya-winit/hotreload"]
 gif = ["freya-components/gif"]
+video = ["dep:freya-video"]
 calendar = ["freya-components/calendar"]
-markdown = ["freya-components/markdown"]
+markdown = ["dep:freya-markdown"]
+markdown-code-editor = ["markdown", "code-editor", "freya-markdown/code-editor"]
 sdk = ["dep:freya-sdk"]
 tray = ["winit", "freya-winit/tray", "dep:tray-icon"]
 material-design = ["dep:freya-material-design"]
@@ -102,6 +112,7 @@ torin = { workspace = true }
 freya-edit = { workspace = true }
 freya-clipboard = { workspace = true }
 freya-components = { workspace = true }
+freya-markdown = { workspace = true, optional = true }
 freya-animation = { workspace = true }
 freya-engine = { workspace = true }
 freya-devtools = { workspace = true, optional = true, features = ["server"] }
@@ -114,6 +125,7 @@ freya-query = { workspace = true, optional = true }
 freya-webview = { workspace = true, optional = true }
 freya-terminal = { workspace = true, optional = true }
 freya-code-editor = { workspace = true, optional = true }
+freya-video = { workspace = true, optional = true }
 freya-camera = { workspace = true, optional = true }
 
 # Performance
