@@ -7,9 +7,11 @@ use std::{
     },
     path::PathBuf,
     rc::Rc,
+    sync::LazyLock,
 };
 
 use anyhow::Context;
+use async_lock::Semaphore;
 use bytes::Bytes;
 use freya_core::{
     elements::image::*,
@@ -152,6 +154,9 @@ impl Hash for ImageSource {
 
 pub type DecodeSize = euclid::Size2D<u32, ()>;
 
+/// Limit the amount of images that are loaded in parallel.
+static DECODE_LIMIT: LazyLock<Semaphore> = LazyLock::new(|| Semaphore::new(4));
+
 impl ImageSource {
     /// Fetch the source's encoded bytes and decode them into a Skia image.
     pub async fn load(
@@ -160,6 +165,7 @@ impl ImageSource {
         sampling_mode: SamplingMode,
     ) -> anyhow::Result<(SkImage, Bytes)> {
         let source = self.clone();
+        let _decode_permit = DECODE_LIMIT.acquire().await;
         blocking::unblock(move || {
             let bytes = match source {
                 #[cfg(feature = "remote-asset")]
@@ -171,14 +177,12 @@ impl ImageSource {
                 Self::Path(path) => fs::read(path).map(Bytes::from)?,
                 Self::Bytes(_, bytes) => bytes,
             };
-            let encoded = SkImage::from_encoded(unsafe { SkData::new_bytes(&bytes) })
+            let image = SkImage::from_encoded(unsafe { SkData::new_bytes(&bytes) })
                 .context("Failed to decode Image.")?;
-            let image = match decode_size
-                .and_then(|target| Self::downsample(&encoded, target, &sampling_mode))
-            {
-                Some(scaled) => scaled,
-                None => encoded.make_raster_image(None, None).unwrap_or(encoded),
-            };
+            let image = image.make_raster_image(None, None).unwrap_or(image);
+            let image = decode_size
+                .and_then(|target| Self::downsample(&image, target, &sampling_mode))
+                .unwrap_or(image);
             Ok((image, bytes))
         })
         .await
