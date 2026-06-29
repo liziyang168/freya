@@ -8,11 +8,6 @@ fn main() {
     launch(LaunchConfig::new().with_window(WindowConfig::new(app)))
 }
 
-/// Each horizontal item alternates between a wide and a narrow width.
-fn horizontal_item_size(index: usize) -> f32 {
-    if index % 2 == 0 { 140. } else { 80. }
-}
-
 fn app() -> impl IntoElement {
     rect()
         .width(Size::fill())
@@ -60,7 +55,7 @@ fn app() -> impl IntoElement {
             })
             .direction(Direction::horizontal())
             .length(300usize)
-            .item_size(horizontal_item_size)
+            .item_size(|index: usize| if index % 2 == 0 { 140. } else { 80. })
             .height(Size::percent(50.)),
         )
 }
