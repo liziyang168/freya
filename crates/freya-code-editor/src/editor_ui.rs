@@ -5,7 +5,6 @@ use freya_components::{
     scrollviews::{
         ScrollController,
         ScrollEvent,
-        VirtualItem,
         VirtualScrollView,
     },
 };
