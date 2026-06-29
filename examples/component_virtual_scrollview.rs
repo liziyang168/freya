@@ -55,7 +55,7 @@ fn app() -> impl IntoElement {
             })
             .direction(Direction::horizontal())
             .length(300usize)
-            .item_size(|index: usize| if index % 2 == 0 { 140. } else { 80. })
+            .item_size(|index: usize| if index.is_multiple_of(2) { 140. } else { 80. })
             .height(Size::percent(50.)),
         )
 }

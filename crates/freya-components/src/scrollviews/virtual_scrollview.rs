@@ -38,7 +38,8 @@ use crate::scrollviews::{
 /// ```rust
 /// # use freya::prelude::*;
 /// let fixed: ItemSize = 25.0f32.into();
-/// let dynamic: ItemSize = (|index: usize| if index % 2 == 0 { 25.0 } else { 50.0 }).into();
+/// let dynamic: ItemSize =
+///     (|index: usize| if index.is_multiple_of(2) { 25.0 } else { 50.0 }).into();
 /// ```
 #[derive(Clone, PartialEq)]
 pub enum ItemSize {

@@ -253,7 +253,7 @@ pub fn virtual_scroll_view_closure_item_size() {
                 .into()
         })
         .length(30usize)
-        .item_size(|index: usize| if index % 2 == 0 { 100. } else { 50. })
+        .item_size(|index: usize| if index.is_multiple_of(2) { 100. } else { 50. })
     }
 
     let mut test = launch_test(virtual_scroll_view_closure_app);
@@ -298,7 +298,7 @@ pub fn virtual_scroll_view_closure_item_size_horizontal() {
                 .into()
         })
         .length(30usize)
-        .item_size(|index: usize| if index % 2 == 0 { 120. } else { 60. })
+        .item_size(|index: usize| if index.is_multiple_of(2) { 120. } else { 60. })
         .direction(Direction::Horizontal)
     }
 
