@@ -126,6 +126,12 @@ impl ItemSize {
     }
 }
 
+impl Default for ItemSize {
+    fn default() -> Self {
+        Self::Fixed(0.)
+    }
+}
+
 impl From<f32> for ItemSize {
     fn from(size: f32) -> Self {
         Self::Fixed(size)
@@ -228,7 +234,7 @@ impl<B: Fn(VirtualItem, &()) -> Element> VirtualScrollView<(), B> {
         Self {
             builder,
             builder_data: (),
-            item_size: ItemSize::Fixed(0.),
+            item_size: ItemSize::default(),
             length: 0,
             layout: {
                 let mut l = LayoutData::default();
@@ -249,7 +255,7 @@ impl<B: Fn(VirtualItem, &()) -> Element> VirtualScrollView<(), B> {
         Self {
             builder,
             builder_data: (),
-            item_size: ItemSize::Fixed(0.),
+            item_size: ItemSize::default(),
             length: 0,
             layout: {
                 let mut l = LayoutData::default();
@@ -272,7 +278,7 @@ impl<D, B: Fn(VirtualItem, &D) -> Element> VirtualScrollView<D, B> {
         Self {
             builder,
             builder_data,
-            item_size: ItemSize::Fixed(0.),
+            item_size: ItemSize::default(),
             length: 0,
             layout: Node {
                 width: Size::fill(),
@@ -297,7 +303,7 @@ impl<D, B: Fn(VirtualItem, &D) -> Element> VirtualScrollView<D, B> {
         Self {
             builder,
             builder_data,
-            item_size: ItemSize::Fixed(0.),
+            item_size: ItemSize::default(),
             length: 0,
 
             layout: Node {
