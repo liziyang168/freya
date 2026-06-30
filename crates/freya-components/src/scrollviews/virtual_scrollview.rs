@@ -231,6 +231,7 @@ impl<D: PartialEq, B: Fn(VirtualItem, &D) -> Element> PartialEq for VirtualScrol
 }
 
 impl<B: Fn(VirtualItem, &()) -> Element> VirtualScrollView<(), B> {
+    /// Creates a [`VirtualScrollView`] that builds each item from its [`VirtualItem`].
     pub fn new(builder: B) -> Self {
         Self {
             builder,
@@ -252,6 +253,7 @@ impl<B: Fn(VirtualItem, &()) -> Element> VirtualScrollView<(), B> {
         }
     }
 
+    /// Same as [`Self::new`] but driven by an external [`ScrollController`].
     pub fn new_controlled(builder: B, scroll_controller: ScrollController) -> Self {
         Self {
             builder,
@@ -275,6 +277,11 @@ impl<B: Fn(VirtualItem, &()) -> Element> VirtualScrollView<(), B> {
 }
 
 impl<D, B: Fn(VirtualItem, &D) -> Element> VirtualScrollView<D, B> {
+    /// Same as [`Self::new`] but passes `builder_data` to the builder for every item.
+    ///
+    /// `builder_data` is owned by the scroll view and handed to the builder by reference
+    /// instead of being captured in the closure. It is part of the view's equality check,
+    /// so changing it rebuilds the visible items.
     pub fn new_with_data(builder_data: D, builder: B) -> Self {
         Self {
             builder,
@@ -296,6 +303,7 @@ impl<D, B: Fn(VirtualItem, &D) -> Element> VirtualScrollView<D, B> {
         }
     }
 
+    /// Same as [`Self::new_with_data`] but driven by an external [`ScrollController`].
     pub fn new_with_data_controlled(
         builder_data: D,
         builder: B,
