@@ -461,6 +461,7 @@ impl<Q: QueryCapability> From<GetQuery<Q>> for Query<Q> {
             keys: value.keys,
 
             enabled: true,
+            keep_old_data: false,
 
             stale_time: value.stale_time,
             clean_time: value.clean_time,
@@ -468,16 +469,29 @@ impl<Q: QueryCapability> From<GetQuery<Q>> for Query<Q> {
         }
     }
 }
-#[derive(PartialEq, Clone)]
+#[derive(Clone)]
 pub struct Query<Q: QueryCapability> {
     query: Q,
     keys: Q::Keys,
 
     enabled: bool,
+    keep_old_data: bool,
 
     stale_time: Duration,
     clean_time: Duration,
     interval_time: Duration,
+}
+
+impl<Q: QueryCapability> PartialEq for Query<Q> {
+    fn eq(&self, other: &Self) -> bool {
+        // `keep_old_data` is left out as it does not affect the identity of the cached data.
+        self.query == other.query
+            && self.keys == other.keys
+            && self.enabled == other.enabled
+            && self.stale_time == other.stale_time
+            && self.clean_time == other.clean_time
+            && self.interval_time == other.interval_time
+    }
 }
 
 impl<Q: QueryCapability> Eq for Query<Q> {}
@@ -502,6 +516,7 @@ impl<Q: QueryCapability> Query<Q> {
             query,
             keys,
             enabled: true,
+            keep_old_data: false,
             stale_time: Duration::ZERO,
             clean_time: Duration::from_secs(5 * 60),
             interval_time: Duration::MAX,
@@ -513,6 +528,20 @@ impl<Q: QueryCapability> Query<Q> {
     /// Defaults to `true`.
     pub fn enable(self, enabled: bool) -> Self {
         Self { enabled, ..self }
+    }
+
+    /// Keep displaying the previously fetched data when the keys change, while the new data loads.
+    ///
+    /// When the keys of a mounted query change a fresh cache entry is created that would normally
+    /// start empty. With this enabled the new entry is seeded with the last successful data, so
+    /// subscribers keep showing it until the new keys settle.
+    ///
+    /// Defaults to `false`.
+    pub fn keep_old_data(self, keep_old_data: bool) -> Self {
+        Self {
+            keep_old_data,
+            ..self
+        }
     }
 
     /// For how long is the data considered stale. If a query subscriber is mounted and the data is stale, it will re run the query
@@ -669,7 +698,10 @@ impl<Q: QueryCapability> UseQuery<Q> {
 /// By default it never refreshes automatically.
 ///
 /// See [Query::interval_time].
-pub fn use_query<Q: QueryCapability>(query: Query<Q>) -> UseQuery<Q> {
+pub fn use_query<Q: QueryCapability>(query: Query<Q>) -> UseQuery<Q>
+where
+    Q::Ok: Clone,
+{
     let mut storage = match try_consume_context::<QueriesStorage<Q>>() {
         Some(storage) => storage,
         None => {
@@ -678,11 +710,27 @@ pub fn use_query<Q: QueryCapability>(query: Query<Q>) -> UseQuery<Q> {
         }
     };
 
-    let mut make_query = |query: &Query<Q>, mut prev_query: Option<Query<Q>>| {
+    let mut make_query = |query: &Query<Q>, prev_query: Option<Query<Q>>| {
         let query_data = storage.insert_or_get_query(query.clone());
 
+        // Seed the fresh entry with the previous data while the new keys load, only if enabled.
+        if query.enabled && query.keep_old_data && query_data.state.borrow().is_pending() {
+            if let Some(prev_query) = &prev_query {
+                let previous_value = storage
+                    .storage
+                    .peek()
+                    .get(prev_query)
+                    .and_then(|prev_data| prev_data.state.borrow().ok().cloned());
+                if let Some(previous_value) = previous_value {
+                    *query_data.state.borrow_mut() = QueryStateData::Loading {
+                        res: Some(Ok(previous_value)),
+                    };
+                }
+            }
+        }
+
         // Update the query tasks if there has been a change in the query
-        if let Some(prev_query) = prev_query.take() {
+        if let Some(prev_query) = prev_query {
             storage.update_tasks(prev_query);
         }
 
