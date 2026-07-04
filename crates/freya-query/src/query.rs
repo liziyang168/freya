@@ -713,9 +713,11 @@ where
     let mut make_query = |query: &Query<Q>, prev_query: Option<Query<Q>>| {
         let query_data = storage.insert_or_get_query(query.clone());
 
-        // Seed the fresh entry with the previous data while the new keys load, only if enabled.
+        // Seed the fresh entry with the previous data while the new keys load, only if enabled and pending.
+        let is_pending = query_data.state.borrow().is_pending();
         if query.enabled
             && query.keep_old_data
+            && is_pending
             && let Some(prev_query) = &prev_query
             && let Some(previous_value) = storage
                 .storage
@@ -723,12 +725,9 @@ where
                 .get(prev_query)
                 .and_then(|prev_data| prev_data.state.borrow().ok().cloned())
         {
-            let mut state = query_data.state.borrow_mut();
-            if state.is_pending() {
-                *state = QueryStateData::Loading {
-                    res: Some(Ok(previous_value)),
-                };
-            }
+            *query_data.state.borrow_mut() = QueryStateData::Loading {
+                res: Some(Ok(previous_value)),
+            };
         }
 
         // Update the query tasks if there has been a change in the query
