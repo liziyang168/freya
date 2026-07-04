@@ -75,7 +75,6 @@ impl QueryCapability for GetGreeting {
         &self,
         id: &Self::Keys,
     ) -> impl core::future::Future<Output = Result<Self::Ok, Self::Err>> {
-        let id = *id;
         async move { Ok(format!("greeting-{id}")) }
     }
 }

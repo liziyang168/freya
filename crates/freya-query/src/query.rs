@@ -715,17 +715,16 @@ where
 
         // Seed the fresh entry with the previous data while the new keys load, only if enabled.
         if query.enabled && query.keep_old_data && query_data.state.borrow().is_pending() {
-            if let Some(prev_query) = &prev_query {
-                let previous_value = storage
+            if let Some(prev_query) = &prev_query
+                && let Some(previous_value) = storage
                     .storage
                     .peek()
                     .get(prev_query)
-                    .and_then(|prev_data| prev_data.state.borrow().ok().cloned());
-                if let Some(previous_value) = previous_value {
-                    *query_data.state.borrow_mut() = QueryStateData::Loading {
-                        res: Some(Ok(previous_value)),
-                    };
-                }
+                    .and_then(|prev_data| prev_data.state.borrow().ok().cloned())
+            {
+                *query_data.state.borrow_mut() = QueryStateData::Loading {
+                    res: Some(Ok(previous_value)),
+                };
             }
         }
 
