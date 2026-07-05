@@ -59,20 +59,6 @@ pub fn launch(mut launch_config: LaunchConfig) {
     };
     use winit::event_loop::EventLoop;
 
-    #[cfg(all(not(debug_assertions), not(target_os = "android")))]
-    {
-        let previous_hook = std::panic::take_hook();
-        std::panic::set_hook(Box::new(move |panic_info| {
-            rfd::MessageDialog::new()
-                .set_title("Fatal Error")
-                .set_description(&panic_info.to_string())
-                .set_level(rfd::MessageLevel::Error)
-                .show();
-            previous_hook(panic_info);
-            std::process::exit(1);
-        }));
-    }
-
     let event_loop = launch_config.event_loop.take().unwrap_or_else(|| {
         EventLoop::<NativeEvent>::with_user_event()
             .build()
@@ -181,5 +167,26 @@ pub fn launch(mut launch_config: LaunchConfig) {
         }
     }
 
+    #[cfg(all(not(debug_assertions), not(target_os = "android")))]
+    {
+        let run_result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            event_loop.run_app(&mut renderer).unwrap();
+        }));
+        if let Err(panic_payload) = run_result {
+            let description = panic_payload
+                .downcast_ref::<&str>()
+                .map(|message| message.to_string())
+                .or_else(|| panic_payload.downcast_ref::<String>().cloned())
+                .unwrap_or_else(|| "The application panicked.".to_string());
+            rfd::MessageDialog::new()
+                .set_title("Fatal Error")
+                .set_description(&description)
+                .set_level(rfd::MessageLevel::Error)
+                .show();
+            std::process::exit(1);
+        }
+    }
+
+    #[cfg(any(debug_assertions, target_os = "android"))]
     event_loop.run_app(&mut renderer).unwrap();
 }
