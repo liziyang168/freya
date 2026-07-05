@@ -575,6 +575,7 @@ impl Tree {
         Some(*current)
     }
 
+    #[allow(clippy::too_many_arguments)]
     pub fn measure_layout(
         &mut self,
         size: Size2D,
