@@ -16,13 +16,13 @@ macro_rules! define_theme {
 
     (
         @ext_impls
-        [ $head_ty:ident $($rest_ty:ident)* ]
+        [ { $head_ty:ident $(< $($head_generics:ident),* >)? } $($rest_ty:tt)* ]
         [ $head_field:ident $($rest_field:ident)* ]
         $name:ident ;
         $( $(#[$field_attrs:meta])* $field_name:ident : $field_ty:ty , )*
     ) => {
         $crate::theming::macros::paste! {
-            impl [<$name ThemePartialExt>] for $head_ty {
+            impl $(< $($head_generics: 'static),* >)? [<$name ThemePartialExt>] for $head_ty $(< $($head_generics),* >)? {
                 $(
                     $(#[$field_attrs])*
                     fn $field_name(mut self, $field_name: impl Into<$field_ty>) -> Self {
@@ -136,7 +136,7 @@ macro_rules! define_theme {
 
     (
         $(#[$attrs:meta])*
-        $(for = $for_ty:ident ; theme_field = $theme_field:ident ;)+
+        $(for = $for_ty:ident $(< $($for_generics:ident),* >)? ; theme_field = $theme_field:ident ;)+
         $(%[component$($component_attr_control:tt)?])?
         pub $name:ident {
             $(
@@ -171,7 +171,7 @@ macro_rules! define_theme {
         }
         $crate::define_theme! {
             @ext_impls
-            [ $($for_ty)+ ]
+            [ $({ $for_ty $(< $($for_generics),* >)? })+ ]
             [ $($theme_field)+ ]
             $name ;
             $($( $(#[$field_attrs])* $field_name : $field_ty , )*)?
