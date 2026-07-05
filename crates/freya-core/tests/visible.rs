@@ -1,6 +1,9 @@
 use freya_core::prelude::*;
 use freya_testing::TestingRunner;
-use torin::prelude::Area;
+use torin::{
+    prelude::Area,
+    size::Size,
+};
 
 #[test]
 fn visible_fires_once_on_first_layout() {
@@ -61,7 +64,7 @@ fn visible_fires_when_entering_clip_viewport() {
             )
     }
 
-    let (mut test, (offset, count)) = TestingRunner::new(
+    let (mut test, (mut offset, count)) = TestingRunner::new(
         app,
         (100., 100.).into(),
         |runner| {
@@ -114,7 +117,7 @@ fn visible_fires_even_when_slightly_visible() {
             )
     }
 
-    let (mut test, (offset, count)) = TestingRunner::new(
+    let (mut test, (mut offset, count)) = TestingRunner::new(
         app,
         (100., 100.).into(),
         |runner| {
@@ -178,7 +181,7 @@ fn visible_fires_again_when_remounted() {
         }))
     }
 
-    let (mut test, (show, count)) = TestingRunner::new(
+    let (mut test, (mut show, count)) = TestingRunner::new(
         app,
         (100., 100.).into(),
         |runner| {
