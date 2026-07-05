@@ -630,21 +630,20 @@ impl Tree {
         let mut visible_nodes = FxHashSet::default();
         let listeners = self.listeners.get(&EventName::Visible);
         for node_id in listeners.into_iter().flatten() {
-            let visible_area = self
-                .layout
-                .get(node_id)
-                .zip(self.effect_state.get(node_id))
-                .filter(|(layout_node, effect_state)| {
-                    !layout_node.hidden && effect_state.is_visible(&self.layout, &layout_node.area)
-                })
-                .map(|(layout_node, _)| layout_node.area);
-
-            let Some(area) = visible_area else {
+            let Some(layout_node) = self.layout.get(node_id) else {
                 continue;
             };
+            let is_visible = !layout_node.hidden
+                && self.effect_state.get(node_id).is_none_or(|effect_state| {
+                    effect_state.is_visible(&self.layout, &layout_node.area)
+                });
+            if !is_visible {
+                continue;
+            }
+
             visible_nodes.insert(*node_id);
             if !nodes_state.is_visible(*node_id) {
-                let mut data = VisibleEventData::new(area);
+                let mut data = VisibleEventData::new(layout_node.area);
                 data.div(scale_factor as f32);
                 events.push(EmmitableEvent {
                     node_id: *node_id,
