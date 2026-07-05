@@ -16,6 +16,7 @@ use freya_engine::prelude::{
 };
 use futures_channel::mpsc::UnboundedSender;
 use itertools::Itertools;
+use ragnarok::NodesState;
 use rustc_hash::{
     FxHashMap,
     FxHashSet,
@@ -52,6 +53,7 @@ use crate::{
         data::{
             EventType,
             SizedEventData,
+            VisibleEventData,
         },
         emittable::EmmitableEvent,
         name::EventName,
@@ -579,6 +581,7 @@ impl Tree {
         font_collection: &mut FontCollection,
         font_manager: &FontMgr,
         events_sender: &UnboundedSender<EventsChunk>,
+        nodes_state: &mut NodesState<NodeId>,
         scale_factor: f64,
         fallback_fonts: &[Cow<'static, str>],
     ) {
@@ -610,9 +613,48 @@ impl Tree {
             &mut Some(layout_adapter),
             &mut tree_adapter,
         );
+        self.measure_visible_events(&mut events, nodes_state, scale_factor);
         events_sender
             .unbounded_send(EventsChunk::Batch(events))
             .unwrap();
+    }
+
+    /// Measure all the Visible listeners, emitting events for those that just became visible.
+    fn measure_visible_events(
+        &self,
+        events: &mut Vec<EmmitableEvent>,
+        nodes_state: &mut NodesState<NodeId>,
+        scale_factor: f64,
+    ) {
+        let mut visible_nodes = FxHashSet::default();
+        let listeners = self.listeners.get(&EventName::Visible);
+        for node_id in listeners.into_iter().flatten() {
+            let visible_area = self
+                .layout
+                .get(node_id)
+                .zip(self.effect_state.get(node_id))
+                .filter(|(layout_node, effect_state)| {
+                    !layout_node.hidden && effect_state.is_visible(&self.layout, &layout_node.area)
+                })
+                .map(|(layout_node, _)| layout_node.area);
+
+            let Some(area) = visible_area else {
+                continue;
+            };
+            visible_nodes.insert(*node_id);
+            if !nodes_state.is_visible(*node_id) {
+                let mut data = VisibleEventData::new(area);
+                data.div(scale_factor as f32);
+                events.push(EmmitableEvent {
+                    node_id: *node_id,
+                    name: EventName::Visible,
+                    data: EventType::Visible(data),
+                    bubbles: false,
+                    source_event: EventName::Visible,
+                });
+            }
+        }
+        nodes_state.set_visible_nodes(visible_nodes);
     }
 
     pub fn print_ascii(&self, node_id: NodeId, prefix: String, last: bool) {
