@@ -769,7 +769,7 @@ freya = { git = "https://github.com/marc2332/freya", branch = "main" }
 Release candidates:
 
 ```toml
-freya = "0.4.0-rc.23"
+freya = "0.4.0-rc.24"
 ```
 
 ### Contributing 🧙‍♂️
