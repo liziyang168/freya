@@ -48,7 +48,32 @@ pub mod tray {
 ///
 /// If a custom event loop was provided via [`LaunchConfig::with_event_loop`], it will be used.
 /// Otherwise a default one is created.
-pub fn launch(mut launch_config: LaunchConfig) {
+pub fn launch(launch_config: LaunchConfig) {
+    #[cfg(all(not(debug_assertions), not(target_os = "android")))]
+    {
+        let run_result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            launch_inner(launch_config);
+        }));
+        if let Err(panic_payload) = run_result {
+            let description = panic_payload
+                .downcast_ref::<&str>()
+                .map(|message| message.to_string())
+                .or_else(|| panic_payload.downcast_ref::<String>().cloned())
+                .unwrap_or_else(|| "The application panicked.".to_string());
+            rfd::MessageDialog::new()
+                .set_title("Fatal Error")
+                .set_description(&description)
+                .set_level(rfd::MessageLevel::Error)
+                .show();
+            std::process::exit(1);
+        }
+    }
+
+    #[cfg(any(debug_assertions, target_os = "android"))]
+    launch_inner(launch_config);
+}
+
+fn launch_inner(mut launch_config: LaunchConfig) {
     use std::collections::HashMap;
 
     use freya_core::integration::*;
@@ -167,26 +192,5 @@ pub fn launch(mut launch_config: LaunchConfig) {
         }
     }
 
-    #[cfg(all(not(debug_assertions), not(target_os = "android")))]
-    {
-        let run_result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-            event_loop.run_app(&mut renderer).unwrap();
-        }));
-        if let Err(panic_payload) = run_result {
-            let description = panic_payload
-                .downcast_ref::<&str>()
-                .map(|message| message.to_string())
-                .or_else(|| panic_payload.downcast_ref::<String>().cloned())
-                .unwrap_or_else(|| "The application panicked.".to_string());
-            rfd::MessageDialog::new()
-                .set_title("Fatal Error")
-                .set_description(&description)
-                .set_level(rfd::MessageLevel::Error)
-                .show();
-            std::process::exit(1);
-        }
-    }
-
-    #[cfg(any(debug_assertions, target_os = "android"))]
     event_loop.run_app(&mut renderer).unwrap();
 }
