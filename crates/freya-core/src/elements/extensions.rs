@@ -51,6 +51,7 @@ use crate::{
             KeyboardEventData,
             MouseEventData,
             SizedEventData,
+            StyledEventData,
             WheelEventData,
         },
         name::EventName,
@@ -306,6 +307,15 @@ pub trait EventHandlersExt: Sized {
         self
     }
 
+    /// Fires when the element's inherited text style is resolved or changes.
+    fn on_styled(mut self, on_styled: impl Into<EventHandler<Event<StyledEventData>>>) -> Self {
+        self.get_event_handlers().insert(
+            EventName::Styled,
+            EventHandlerType::Styled(on_styled.into()),
+        );
+        self
+    }
+
     /// This is generally the best event in which to run "press" logic, this might be called `onClick`, `onActivate`, or `onConnect` in other platforms.
     ///
     /// Gets triggered when:
@@ -550,8 +560,8 @@ where
 
 impl<T: ContainerExt> ContainerSizeExt for T {}
 
-/// Methods controlling an element's position and size constraints.
-pub trait ContainerExt
+/// Methods for setting how an element is placed relative to its parent or the window.
+pub trait ContainerPositionExt
 where
     Self: LayoutExt,
 {
@@ -561,15 +571,23 @@ where
         self
     }
 
-    /// Set the inner spacing between the element's edges and its content. See [`Gaps`].
-    fn padding(mut self, padding: impl Into<Gaps>) -> Self {
-        self.get_layout().layout.padding = padding.into();
-        self
-    }
-
     /// Set the outer spacing between the element's edges and its surroundings. See [`Gaps`].
     fn margin(mut self, margin: impl Into<Gaps>) -> Self {
         self.get_layout().layout.margin = margin.into();
+        self
+    }
+}
+
+impl<T: ContainerExt> ContainerPositionExt for T {}
+
+/// Methods controlling an element's spacing and size constraints.
+pub trait ContainerExt
+where
+    Self: LayoutExt,
+{
+    /// Set the inner spacing between the element's edges and its content. See [`Gaps`].
+    fn padding(mut self, padding: impl Into<Gaps>) -> Self {
+        self.get_layout().layout.padding = padding.into();
         self
     }
 
