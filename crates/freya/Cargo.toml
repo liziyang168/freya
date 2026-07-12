@@ -53,7 +53,12 @@ all-publish = [
   "dep:freya-testing",
   "dep:freya-plotters-backend",
 ]
-all-debug = ["all", "dep:freya-testing", "dep:freya-plotters-backend", "performance"]
+all-debug = [
+  "all",
+  "dep:freya-testing",
+  "dep:freya-plotters-backend",
+  "performance",
+]
 all-tests = [
   "winit",
   "router",
