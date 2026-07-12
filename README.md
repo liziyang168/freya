@@ -10,9 +10,6 @@
 
 **Freya** is a **cross-platform, native, declarative** GUI library for Rust 🦀.
 
-> :warning: I recently rewrote a huge percentage of Freya in https://github.com/marc2332/freya/pull/1351, so the `main` branch differs a lot from the latest stable release.
-
-
 ### Usage 📜
 `main` branch:
 
