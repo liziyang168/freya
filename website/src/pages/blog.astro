@@ -4,7 +4,7 @@ const posts = await getCollection("blog");
 import Layout from "../layouts/Layout.astro";
 ---
 
-<Layout title="Freya - GUI Library for Rust">
+<Layout title="Freya Blog">
   {posts.sort((a, b) => b.data.date.getTime() - a.data.date.getTime()).map((post) => {
     const formattedDate = post.data.date.toLocaleString().split(',')[0];
     return (
