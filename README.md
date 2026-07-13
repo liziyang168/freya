@@ -11,16 +11,16 @@
 **Freya** is a **cross-platform, native, declarative** GUI library for Rust 🦀.
 
 ### Usage 📜
+Latest stable release:
+
+```toml
+freya = "0.4"
+```
+
 `main` branch:
 
 ```toml
 freya = { git = "https://github.com/marc2332/freya", branch = "main" }
-```
-
-Release candidates:
-
-```toml
-freya = "0.4"
 ```
 
 ### Components & State 
